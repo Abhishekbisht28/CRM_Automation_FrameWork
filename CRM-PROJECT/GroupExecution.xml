@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="GroupExecutionSuite">
+
+    <test name="SmokeTests">
+        <groups>
+            <run>
+                <include name="smoke"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="GroupTest1"/>
+            <class name="GroupTest2"/>
+            <class name="GroupTest3"/>
+        </classes>
+    </test>
+
+    <test name="RegressionTests">
+        <groups>
+            <run>
+                <include name="reg"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="GroupTest1"/>
+            <class name="GroupTest2"/>
+            <class name="GroupTest3"/>
+        </classes>
+    </test>
+    <test name="SanityTests">
+        <groups>
+            <run>
+                <include name="san"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="GroupTest1"/>
+            <class name="GroupTest2"/>
+            <class name="GroupTest3"/>
+        </classes>
+    </test>
+
+</suite>
+
+

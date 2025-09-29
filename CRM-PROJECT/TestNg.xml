@@ -1,0 +1,9 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+<suite name="Automation Suite" preserve-order="true"> 
+  <test name="smoke">
+    <classes>
+      <class name="TestNg.Demo1"/>
+    
+    </classes>
+  </test>
+</suite>
