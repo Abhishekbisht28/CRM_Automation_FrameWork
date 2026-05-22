@@ -1,0 +1,17 @@
+[
+  {
+    "name": "posts_api",
+    "method": "GET",
+    "url": "https://jsonplaceholder.typicode.com/posts"
+  },
+  {
+    "name": "users_api",
+    "method": "GET",
+    "url": "https://dummyjson.com/users"
+  },
+  {
+    "name": "slow_api",
+    "method": "GET",
+    "url": "https://httpbin.org/delay/2"
+  }
+]
