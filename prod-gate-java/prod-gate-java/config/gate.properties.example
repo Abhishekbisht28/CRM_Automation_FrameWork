@@ -1,0 +1,35 @@
+# ============================================================
+#  gate.properties — Production Gate Configuration
+#  Copy: cp gate.properties.example gate.properties
+#  Add gate.properties to .gitignore  (never commit secrets)
+# ============================================================
+
+# ── Performance thresholds ───────────────────────────────────
+# Hard ceiling: any single API above this is flagged
+api.hard.limit.ms=600
+
+# Number of APIs exceeding the hard limit before blocking the merge
+api.max.slow.count=1
+
+# Regression %: block if an API is X% slower than its recorded baseline
+# e.g. 10 means "500ms → 551ms+ triggers a block"
+api.regression.pct=10
+
+# ── Email ─────────────────────────────────────────────────────
+email.enabled=true
+email.to=devops@yourcompany.com
+email.from=prodgate@yourcompany.com
+
+# SMTP settings
+# For Gmail use: smtp.host=smtp.gmail.com  smtp.port=587  smtp.tls=true
+# For local relay: smtp.host=localhost  smtp.port=25  (no user/pass needed)
+smtp.host=smtp.yourcompany.com
+smtp.port=587
+smtp.tls=true
+
+# Store credentials in env vars, NOT here:
+#   export SMTP_USER=alerts@yourcompany.com
+#   export SMTP_PASSWORD=yourAppPassword
+# Or uncomment (and add gate.properties to .gitignore!):
+# smtp.user=
+# smtp.password=

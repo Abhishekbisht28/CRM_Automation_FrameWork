@@ -1,0 +1,122 @@
+name: 🛡️ Production Gate (Java)
+
+on:
+  pull_request:
+    branches: [main, master, production]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+concurrency:
+  group: prod-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  production-gate:
+    name: 🔍 Security & Performance Gate
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      statuses: write
+      contents: read
+
+    steps:
+      - name: Checkout Application Code
+        uses: actions/checkout@v4
+        with:
+          path: app
+
+      - name: Checkout Prod Gate
+        uses: actions/checkout@v4
+        with:
+          repository: your-org/prod-gate-java   # ← change to your repo
+          path: prod-gate
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-maven-${{ hashFiles('prod-gate/pom.xml') }}
+
+      - name: Build Prod Gate JAR
+        run: cd prod-gate && mvn package -q -DskipTests
+
+      - name: Restore API Baseline
+        uses: actions/cache@v4
+        with:
+          path: prod-gate/baseline/api_baselines.json
+          key: api-baseline-${{ github.base_ref }}-${{ github.run_id }}
+          restore-keys: api-baseline-${{ github.base_ref }}-
+
+      - name: Prepare Config
+        run: |
+          cp prod-gate/config/gate.properties.example prod-gate/config/gate.properties
+          # Inject from GitHub Vars/Secrets
+          echo "email.enabled=${{ vars.EMAIL_ENABLED || 'true' }}"    >> prod-gate/config/gate.properties
+          echo "email.to=${{ vars.EMAIL_TO }}"                        >> prod-gate/config/gate.properties
+          echo "email.from=${{ vars.EMAIL_FROM }}"                    >> prod-gate/config/gate.properties
+          echo "smtp.host=${{ vars.SMTP_HOST }}"                      >> prod-gate/config/gate.properties
+          echo "smtp.port=${{ vars.SMTP_PORT || '587' }}"             >> prod-gate/config/gate.properties
+          # Credentials via env vars (never written to disk)
+
+      - name: Copy API List from App Repo
+        run: |
+          if [[ -f app/.prod-gate/apis.json ]]; then
+            cp app/.prod-gate/apis.json prod-gate/config/apis.json
+            echo "Using apis.json from application repo"
+          fi
+
+      - name: 🚀 Run Production Gate
+        id: gate
+        env:
+          SMTP_USER:     ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          API_TOKEN:     ${{ secrets.STAGING_API_TOKEN }}
+        run: |
+          cd prod-gate
+          java -jar target/prod-gate.jar \
+            --config  config/gate.properties \
+            --code-path ../app \
+            --apis    config/apis.json \
+            --baseline baseline/api_baselines.json
+        continue-on-error: true
+
+      - name: Save Updated Baseline
+        uses: actions/cache@v4
+        if: always()
+        with:
+          path: prod-gate/baseline/api_baselines.json
+          key: api-baseline-${{ github.base_ref }}-${{ github.run_id }}
+
+      - name: Post PR Comment
+        uses: actions/github-script@v7
+        if: always() && github.event_name == 'pull_request'
+        with:
+          script: |
+            const passed = '${{ steps.gate.outcome }}' === 'success';
+            const body = `## ${passed ? '🟢' : '🔴'} Production Gate — ${passed ? '✅ PASSED' : '❌ BLOCKED'}
+
+            | Check | Result |
+            |---|---|
+            | Security Scan | ${passed ? '✅ Clean' : '⚠️ Review required'} |
+            | API Performance | ${passed ? '✅ Within limits' : '❌ Violations detected'} |
+            | API Regression | ${passed ? '✅ No regressions' : '❌ Regressions found'} |
+
+            > Full report: [Actions Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Enforce Gate Decision
+        if: steps.gate.outcome == 'failure'
+        run: |
+          echo "::error::Production Gate BLOCKED this merge."
+          exit 1
